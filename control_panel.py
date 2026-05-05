@@ -1,12 +1,14 @@
 """Control panel with buttons, speed slider, and example selector."""
 
 from PySide6.QtWidgets import (
-    QWidget, QHBoxLayout, QLabel, QSlider, QComboBox, QPushButton
+    QWidget, QHBoxLayout, QVBoxLayout, QLabel, QSlider, QComboBox, QPushButton
 )
 from PySide6.QtCore import Qt, Signal
 
 
 class ControlPanel(QWidget):
+    """Panel containing run controls, speed slider, and example selector."""
+    
     step_clicked = Signal()
     run_clicked = Signal()
     auto_toggled = Signal()
@@ -17,6 +19,7 @@ class ControlPanel(QWidget):
 
     def __init__(self, parent=None):
         super().__init__(parent)
+        self._is_auto_running = False
         self._setup_ui()
 
     def _setup_ui(self):
@@ -24,10 +27,11 @@ class ControlPanel(QWidget):
         main_layout.setContentsMargins(0, 5, 0, 5)
         main_layout.setSpacing(6)
 
-        # Speed control row
+        # Speed control and example row
         speed_layout = QHBoxLayout()
         speed_layout.setSpacing(8)
 
+        # Speed control
         speed_label = QLabel("⏱️ Speed:")
         speed_label.setFixedWidth(60)
 
@@ -35,6 +39,7 @@ class ControlPanel(QWidget):
         self.speed_slider.setRange(1, 100)
         self.speed_slider.setValue(50)
         self.speed_slider.setFixedWidth(130)
+        self.speed_slider.setToolTip("Adjust auto-run speed (1=slow, 100=fast)")
         self.speed_slider.valueChanged.connect(self._on_speed_changed)
 
         self.speed_value_label = QLabel("51ms")
@@ -47,6 +52,10 @@ class ControlPanel(QWidget):
         speed_layout.addStretch()
 
         # Example selector
+        example_label = QLabel("📋 Examples:")
+        example_label.setStyleSheet("font-size: 11px;")
+        speed_layout.addWidget(example_label)
+
         self.example_combo = QComboBox()
         self.example_combo.addItems([
             "Binary Incrementer",
@@ -57,9 +66,11 @@ class ControlPanel(QWidget):
             "Output: Battle Logger"
         ])
         self.example_combo.setFixedWidth(200)
+        self.example_combo.setToolTip("Select an example program to load")
 
-        btn_load = QPushButton("📋 Load")
-        btn_load.setFixedWidth(70)
+        btn_load = QPushButton("Load")
+        btn_load.setFixedWidth(55)
+        btn_load.setToolTip("Load selected example into editor")
         btn_load.clicked.connect(self._on_load_clicked)
 
         speed_layout.addWidget(self.example_combo)
@@ -72,19 +83,20 @@ class ControlPanel(QWidget):
 
         self.btn_step = QPushButton("▶️ Step")
         self.btn_run = QPushButton("⏩ Run All")
-        self.btn_auto = QPushButton("🔁 Auto Run")
+        self.btn_auto = QPushButton("🔁 Auto")
         self.btn_stop = QPushButton("⏹️ Stop")
         self.btn_reset = QPushButton("🔄 Reset")
 
         self.btn_stop.setEnabled(False)
 
-        # Set button tooltips
+        # Set button tooltips with shortcuts
         self.btn_step.setToolTip("Execute one step (F10)")
         self.btn_run.setToolTip("Run to completion (F5)")
         self.btn_auto.setToolTip("Toggle auto-run (F6)")
         self.btn_stop.setToolTip("Stop auto-run (Escape)")
         self.btn_reset.setToolTip("Reset machine (Ctrl+R)")
 
+        # Connect signals
         self.btn_step.clicked.connect(self.step_clicked.emit)
         self.btn_run.clicked.connect(self.run_clicked.emit)
         self.btn_auto.clicked.connect(self.auto_toggled.emit)
@@ -103,17 +115,18 @@ class ControlPanel(QWidget):
         zoom_layout.setSpacing(6)
 
         zoom_label = QLabel("🔍 Tape Zoom:")
-        zoom_label.setFixedWidth(85)
+        zoom_label.setFixedWidth(90)
 
         self.btn_zoom_in = QPushButton("➕")
         self.btn_zoom_in.setFixedWidth(40)
+        self.btn_zoom_in.setToolTip("Zoom in (Ctrl+Plus)")
+        
         self.btn_zoom_out = QPushButton("➖")
         self.btn_zoom_out.setFixedWidth(40)
+        self.btn_zoom_out.setToolTip("Zoom out (Ctrl+Minus)")
+        
         self.btn_zoom_reset = QPushButton("↺ Reset")
         self.btn_zoom_reset.setFixedWidth(60)
-
-        self.btn_zoom_in.setToolTip("Zoom in (Ctrl+Plus)")
-        self.btn_zoom_out.setToolTip("Zoom out (Ctrl+Minus)")
         self.btn_zoom_reset.setToolTip("Reset zoom (Ctrl+0)")
 
         zoom_layout.addWidget(zoom_label)
@@ -128,25 +141,35 @@ class ControlPanel(QWidget):
         self._on_speed_changed(self.speed_slider.value())
 
     def _on_speed_changed(self, value):
+        """Handle speed slider change."""
+        # Invert: slider value 1 = slow (100ms), 100 = fast (1ms)
         interval = max(1, 101 - value)
         self.speed_value_label.setText(f"{interval}ms")
         self.speed_changed.emit(interval)
 
     def _on_load_clicked(self):
+        """Handle load example button click."""
         self.example_load_requested.emit(self.example_combo.currentText())
 
     def set_auto_running(self, is_running):
-        self.is_auto_running = is_running
+        """Update UI to reflect auto-run state."""
+        self._is_auto_running = is_running
         if is_running:
             self.btn_auto.setText("⏸️ Pause")
+            self.btn_auto.setToolTip("Pause auto-run (F6)")
             self.btn_stop.setEnabled(True)
             self.btn_step.setEnabled(False)
             self.btn_run.setEnabled(False)
+            self.btn_auto.setStyleSheet(
+                "QPushButton { background-color: #4a3510; border-color: #ffcc00; }"
+            )
         else:
-            self.btn_auto.setText("🔁 Auto Run")
+            self.btn_auto.setText("🔁 Auto")
+            self.btn_auto.setToolTip("Toggle auto-run (F6)")
             self.btn_stop.setEnabled(False)
             self.btn_step.setEnabled(True)
             self.btn_run.setEnabled(True)
+            self.btn_auto.setStyleSheet("")
 
     @property
     def is_auto_running(self):

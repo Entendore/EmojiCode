@@ -2,7 +2,7 @@
 
 from PySide6.QtWidgets import (
     QWidget, QVBoxLayout, QHBoxLayout, QLabel, QLineEdit, QScrollArea,
-    QPushButton, QFrame
+    QPushButton, QFrame, QToolTip
 )
 from PySide6.QtCore import Qt
 from PySide6.QtGui import QFont
@@ -40,8 +40,26 @@ EMOJI_LABELS = {
     'NEWLINE': 'Newline (↵)'
 }
 
+EMOJI_DESCRIPTIONS = {
+    'INIT_STATE': 'Start state marker',
+    'HALT_STATE': 'Machine stop state',
+    'BLANK': 'Empty tape cell',
+    'TAPE_START': 'Begin tape content',
+    'TAPE_END': 'End tape content',
+    'RULE_START': 'Begin transition rule',
+    'RULE_END': 'End transition rule',
+    'MOVE_R': 'Move head right',
+    'MOVE_L': 'Move head left',
+    'MOVE_STAY': 'Head stays in place',
+    'RUN': 'Run to completion',
+    'PRINT': 'Output tape contents',
+    'NEWLINE': 'Line break in output'
+}
+
 
 class EmojiConfigPanel(QFrame):
+    """Configuration panel for emoji language symbols."""
+    
     def __init__(self, parent=None):
         super().__init__(parent)
         self.setFixedWidth(270)
@@ -84,10 +102,12 @@ class EmojiConfigPanel(QFrame):
 
         # Reset button
         reset_btn = QPushButton("🔄 Reset to Defaults")
+        reset_btn.setToolTip("Reset all emoji mappings to default values")
         reset_btn.clicked.connect(self._reset_defaults)
         layout.addWidget(reset_btn)
 
     def _create_emoji_row(self, key, label_text):
+        """Create a row with label and emoji input."""
         row = QWidget()
         row_layout = QHBoxLayout(row)
         row_layout.setContentsMargins(2, 2, 2, 2)
@@ -103,6 +123,11 @@ class EmojiConfigPanel(QFrame):
         inp.setFont(QFont("Segoe UI Emoji", 16))
         inp.setText(DEFAULT_EMOJIS.get(key, "❓"))
         inp.setPlaceholderText("❓")
+        
+        # Add tooltip with description
+        description = EMOJI_DESCRIPTIONS.get(key, "")
+        default = DEFAULT_EMOJIS.get(key, "")
+        inp.setToolTip(f"{description}\nDefault: {default}")
 
         self.emoji_inputs[key] = inp
         row_layout.addWidget(lbl)
@@ -112,16 +137,35 @@ class EmojiConfigPanel(QFrame):
         return row
 
     def _reset_defaults(self):
+        """Reset all inputs to default values."""
         for key, default in DEFAULT_EMOJIS.items():
             if key in self.emoji_inputs:
                 self.emoji_inputs[key].setText(default)
 
     def get_emoji_map(self):
+        """Get current emoji mappings as dictionary."""
         return {k: v.text() for k, v in self.emoji_inputs.items()}
 
     def validate(self):
-        """Validate all emoji fields are filled. Returns (valid, error_msg)."""
+        """
+        Validate all emoji fields are filled and unique.
+        Returns (valid, error_msg).
+        """
+        values = {}
         for key, inp in self.emoji_inputs.items():
-            if not inp.text().strip():
-                return False, f"Please define an emoji for: {EMOJI_LABELS.get(key, key)}"
+            value = inp.text().strip()
+            if not value:
+                label = EMOJI_LABELS.get(key, key)
+                return False, f"Please define an emoji for: {label}"
+            values[key] = value
+        
+        # Check for duplicates
+        seen = {}
+        for key, value in values.items():
+            if value in seen:
+                label1 = EMOJI_LABELS.get(seen[value], seen[value])
+                label2 = EMOJI_LABELS.get(key, key)
+                return False, f"Duplicate emoji '{value}' used for both {label1} and {label2}"
+            seen[value] = key
+        
         return True, ""
